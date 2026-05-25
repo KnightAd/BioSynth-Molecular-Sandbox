@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioSynth // Molecular Sandbox & Drug Discovery Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;600;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- jQuery (Required by 3Dmol.js) -->
+    <script src="https://code.jquery.com/jquery-3.6.3.min.js" crossorigin="anonymous"></script>
+    <!-- 3Dmol.js WebGL Molecular Viewer -->
+    <script src="https://3dmol.org/build/3Dmol-min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <!-- DNA Scanning Line and Animated Background Particle Canvas -->
+    <div class="scanline"></div>
+    <div class="grid-overlay"></div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="main-header">
+            <div class="logo-area">
+                <div class="glowing-orb"></div>
+                <h1>BIOSYNTH <span class="version">v1.0.4</span></h1>
+            </div>
+            <div class="system-status">
+                <div class="status-item">
+                    <span class="label">CORE ENGINE:</span>
+                    <span class="value active">ONLINE</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">WEBGL CONTEXT:</span>
+                    <span class="value ok" id="webgl-status">ACTIVE</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">SYS-LOAD:</span>
+                    <span class="value telemetry-pulse" id="sys-load">0.02%</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- DASHBOARD GRID -->
+        <main class="dashboard-grid">
+            <!-- PANEL 1: 3D MOLECULAR EXPLORER (LEFT) -->
+            <section class="panel panel-3d">
+                <div class="panel-header">
+                    <div class="title-with-icon">
+                        <i data-lucide="atom" class="icon-violet"></i>
+                        <h2>3D WebGL Molecular View</h2>
+                    </div>
+                    <div class="panel-badge">RENDERER: GL</div>
+                </div>
+                
+                <div class="panel-controls">
+                    <div class="control-group">
+                        <label for="pdb-select">Target Protein:</label>
+                        <select id="pdb-select" class="sci-select">
+                            <option value="1HSG" selected>1HSG (HIV-1 Protease & Indinavir)</option>
+                            <option value="6M0J">6M0J (COVID-19 Spike RBD & ACE2)</option>
+                            <option value="4HHB">4HHB (Human Hemoglobin - Deoxy)</option>
+                            <option value="1EMA">1EMA (Green Fluorescent Protein - GFP)</option>
+                            <option value="1BNA">1BNA (Drew-Dickerson B-DNA Helix)</option>
+                            <option value="4MQT">4MQT (Human Insulin Receptor Kinase)</option>
+                            <option value="custom">-- Load custom PDB --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group custom-pdb-group hidden">
+                        <input type="text" id="pdb-custom-input" class="sci-input" placeholder="Enter PDB ID (e.g. 1ATU)">
+                        <button id="pdb-custom-btn" class="sci-btn btn-violet">Fetch</button>
+                    </div>
+                </div>
+
+                <!-- 3D Viewer Container -->
+                <div class="viewer-wrapper">
+                    <div id="mol-viewer" class="mol-container"></div>
+                    
+                    <!-- HUD overlay inside the viewer -->
+                    <div class="viewer-hud">
+                        <div class="hud-metrics">
+                            <div class="hud-stat"><span class="label">SPIN:</span> <span class="value" id="spin-status">OFF</span></div>
+                            <div class="hud-stat"><span class="label">STYLE:</span> <span class="value" id="style-status">STICK</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="viewer-toolbar">
+                    <button class="tool-btn" id="btn-spin" title="Toggle Auto-Spin"><i data-lucide="rotate-cw"></i></button>
+                    <button class="tool-btn" id="btn-style-stick" title="Stick Style"><i data-lucide="drafting-compass"></i> Stick</button>
+                    <button class="tool-btn" id="btn-style-sphere" title="Sphere Style"><i data-lucide="circle-dot"></i> Sphere</button>
+                    <button class="tool-btn" id="btn-style-cartoon" title="Cartoon Ribbon"><i data-lucide="wind"></i> Ribbon</button>
+                    <button class="tool-btn" id="btn-reset-cam" title="Reset Camera"><i data-lucide="maximize-2"></i> Reset</button>
+                </div>
+
+                <div class="panel-footer pdb-info-box">
+                    <div class="pdb-title" id="active-pdb-title">HIV-1 Protease complexed with Indinavir</div>
+                    <div class="pdb-meta">
+                        <span><strong>PDB ID:</strong> <span id="active-pdb-id">1HSG</span></span>
+                        <span><strong>Method:</strong> X-Ray Diffraction</span>
+                        <span><strong>Res:</strong> 1.90 Å</span>
+                    </div>
+                    <!-- Detailed Protein Bio-profile -->
+                    <div class="pdb-detail-profile" id="active-pdb-profile">
+                        <div class="profile-row"><span class="lbl">Organism:</span> <span class="val" id="prof-organism">Human immunodeficiency virus 1</span></div>
+                        <div class="profile-row"><span class="lbl">Primary Function:</span> <span class="val text-violet" id="prof-function">Viral Polyprotein Processing</span></div>
+                        <div class="profile-desc" id="prof-desc">An aspartic protease enzyme crucial for the replication of HIV. It cleaves newly synthesized polyproteins to create the mature, infectious protein components of an HIV virion. Major target for antiviral inhibitor therapies.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL 2: 2D COMPOUND SANDBOX (CENTER) -->
+            <section class="panel panel-sandbox">
+                <div class="panel-header">
+                    <div class="title-with-icon">
+                        <i data-lucide="flask-conical" class="icon-green"></i>
+                        <h2>Compound Sandbox & Sketcher</h2>
+                    </div>
+                    <div class="panel-badge highlight">2D DESIGNER</div>
+                </div>
+
+                <div class="sandbox-toolbar">
+                    <div class="atom-selectors">
+                        <button class="atom-btn active" data-atom="C" style="--atom-color: #00ff66;">C</button>
+                        <button class="atom-btn" data-atom="N" style="--atom-color: #0088ff;">N</button>
+                        <button class="atom-btn" data-atom="O" style="--atom-color: #ff3b30;">O</button>
+                        <button class="atom-btn" data-atom="F" style="--atom-color: #bf5af2;">F</button>
+                        <button class="atom-btn" data-atom="Cl" style="--atom-color: #ffd60a;">Cl</button>
+                        <button class="atom-btn" data-atom="S" style="--atom-color: #ff9f0a;">S</button>
+                    </div>
+                    <div class="bond-selectors">
+                        <button class="bond-btn active" id="bond-single" title="Single Bond"><span class="bond-line"></span></button>
+                        <button class="bond-btn" id="bond-double" title="Double Bond"><span class="bond-line double"></span></button>
+                        <button class="bond-btn" id="btn-eraser" title="Eraser Tool"><i data-lucide="eraser"></i></button>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="action-btn text-red" id="btn-clear-sandbox" title="Clear Canvas"><i data-lucide="trash-2"></i></button>
+                    </div>
+                </div>
+
+                <!-- 2D Canvas Workspace -->
+                <div class="canvas-wrapper">
+                    <canvas id="sandbox-canvas"></canvas>
+                    <div class="canvas-hint">Click grid to place atoms. Drag between atoms to draw bonds.</div>
+                </div>
+
+                <!-- Live Bio-Telemetry Analyzer -->
+                <div class="telemetry-panel">
+                    <h3><i data-lucide="activity"></i> Dynamic Bio-Telemetry</h3>
+                    
+                    <div class="telemetry-grid">
+                        <div class="tel-metric">
+                            <span class="label">Molecular Weight:</span>
+                            <span class="value" id="tel-mw">0.00 <span class="unit">g/mol</span></span>
+                        </div>
+                        <div class="tel-metric">
+                            <span class="label">Chemical Formula:</span>
+                            <span class="value" id="tel-formula">-</span>
+                        </div>
+                        <div class="tel-metric">
+                            <span class="label">Est. LogP:</span>
+                            <span class="value" id="tel-logp">0.00</span>
+                        </div>
+                        <div class="tel-metric">
+                            <span class="label">Rotatable Bonds:</span>
+                            <span class="value" id="tel-rotb">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Lipinski Rule Validation Indicators -->
+                    <div class="lipinski-container">
+                        <div class="lipinski-header">
+                            <span>LIPINSKI DRUG-LIKENESS SCORE:</span>
+                            <span class="score-badge pass" id="lipinski-verdict">PASS (4/4)</span>
+                        </div>
+                        <div class="lipinski-bars">
+                            <div class="lipinski-item" id="rule-mw">
+                                <div class="rule-labels"><span>Weight (&le; 500 Da)</span> <span class="rule-val" id="val-mw">0 Da</span></div>
+                                <div class="rule-track"><div class="rule-fill" style="width: 0%;"></div></div>
+                            </div>
+                            <div class="lipinski-item" id="rule-logp">
+                                <div class="rule-labels"><span>LogP (&le; 5.0)</span> <span class="rule-val" id="val-logp">0.0</span></div>
+                                <div class="rule-track"><div class="rule-fill" style="width: 0%;"></div></div>
+                            </div>
+                            <div class="lipinski-item" id="rule-hbd">
+                                <div class="rule-labels"><span>H-Bond Donors (&le; 5)</span> <span class="rule-val" id="val-hbd">0</span></div>
+                                <div class="rule-track"><div class="rule-fill" style="width: 0%;"></div></div>
+                            </div>
+                            <div class="lipinski-item" id="rule-hba">
+                                <div class="rule-labels"><span>H-Bond Acceptors (&le; 10)</span> <span class="rule-val" id="val-hba">0</span></div>
+                                <div class="rule-track"><div class="rule-fill" style="width: 0%;"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL 3: DOCKING ENGINE & DATA HUB (RIGHT) -->
+            <section class="panel panel-control">
+                <!-- PANEL TABS -->
+                <div class="panel-tabs">
+                    <button class="tab-btn active" data-tab="docking-tab"><i data-lucide="play-circle"></i> Docking Sim</button>
+                    <button class="tab-btn" data-tab="database-tab"><i data-lucide="search"></i> PubChem Hub</button>
+                    <button class="tab-btn" data-tab="codex-tab"><i data-lucide="book-open"></i> Lab Codex</button>
+                </div>
+
+                <div class="tab-content-wrapper">
+                    <!-- DOCKING TAB -->
+                    <div class="tab-content active" id="docking-tab">
+                        <div class="tab-header-text">
+                            <h3>Autodock Simulation Console</h3>
+                            <p>Compute ligand binding affinity into the receptor's active site cavity.</p>
+                        </div>
+
+                        <div class="dock-setup-card">
+                            <div class="dock-row">
+                                <span class="label"><i data-lucide="shield-alert"></i> Receptor Target:</span>
+                                <span class="value text-violet" id="dock-receptor-val">1HSG (HIV-1 Protease)</span>
+                            </div>
+                            <div class="dock-row">
+                                <span class="label"><i data-lucide="microscope"></i> Ligand Molecule:</span>
+                                <span class="value text-green" id="dock-ligand-val">Sandbox Sketch (0 atoms)</span>
+                            </div>
+                            <div class="dock-sliders">
+                                <div class="slider-group">
+                                    <div class="slider-labels">
+                                        <span>Search Box Grid (X, Y, Z):</span>
+                                        <span id="grid-size-val">22 Å</span>
+                                    </div>
+                                    <input type="range" id="grid-size" min="10" max="40" value="22" class="sci-slider">
+                                </div>
+                                <div class="slider-group">
+                                    <div class="slider-labels">
+                                        <span>Exhaustiveness (Runs):</span>
+                                        <span id="exhaust-val">8</span>
+                                    </div>
+                                    <input type="range" id="exhaustiveness" min="4" max="16" value="8" class="sci-slider">
+                                </div>
+                            </div>
+                            <button class="sci-btn btn-glow-green btn-large" id="btn-dock-initiate">
+                                <i data-lucide="zap"></i> INITIATE DOCKING
+                            </button>
+                        </div>
+
+                        <!-- Scientific Terminal Log Console -->
+                        <div class="terminal-container">
+                            <div class="terminal-header">
+                                <div class="terminal-dots">
+                                    <span></span><span></span><span></span>
+                                </div>
+                                <span>dock_engine_v1.4.exe</span>
+                            </div>
+                            <div class="terminal-body" id="dock-terminal">
+                                <div class="terminal-line system">[SYSTEM INITIALIZED] Ready for molecular docking task...</div>
+                                <div class="terminal-line system">Waiting for target selection and compound sandbox sketch...</div>
+                            </div>
+                        </div>
+
+                        <!-- Simulation Score Result Overlay -->
+                        <div class="docking-result-card hidden" id="dock-result-card">
+                            <div class="result-header">DOCKING ANALYSIS REPORT</div>
+                            <div class="result-grid">
+                                <div class="res-item">
+                                    <span class="label">Affinity (&Delta;G):</span>
+                                    <span class="value highlight-text" id="res-affinity">-0.0 <span class="unit">kcal/mol</span></span>
+                                </div>
+                                <div class="res-item">
+                                    <span class="label">Est. K<sub>i</sub> (Inhib. Const):</span>
+                                    <span class="value" id="res-ki">0.0 &mu;M</span>
+                                </div>
+                                <div class="res-item">
+                                    <span class="label">RMSD l.b.:</span>
+                                    <span class="value">0.00 Å</span>
+                                </div>
+                                <div class="res-item">
+                                    <span class="label">Ligand Efficiency:</span>
+                                    <span class="value text-green" id="res-efficiency">Excellent</span>
+                                </div>
+                            </div>
+                            <div class="result-footer">
+                                <button class="sci-btn btn-outline" id="btn-load-complex">
+                                    <i data-lucide="eye"></i> View Binding Interactions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DATABASE TAB -->
+                    <div class="tab-content" id="database-tab">
+                        <div class="tab-header-text">
+                            <h3>PubChem Chemical Database</h3>
+                            <p>Query chemical structures, pharmacology descriptions, and properties directly from the National Institutes of Health (NIH).</p>
+                        </div>
+
+                        <div class="search-form">
+                            <input type="text" id="db-search-input" class="sci-input" placeholder="Search drug name (e.g. Aspirin, Imatinib, Remdesivir)">
+                            <button id="db-search-btn" class="sci-btn btn-green"><i data-lucide="search"></i> Search</button>
+                        </div>
+
+                        <div class="search-loading hidden" id="db-loader">
+                            <div class="spinner"></div>
+                            <span>Scanning PubChem registry...</span>
+                        </div>
+
+                        <div class="search-error-box hidden" id="db-error">
+                            No matching compounds found. Check spelling or try a different term.
+                        </div>
+
+                        <div class="db-results-container hidden" id="db-result-box">
+                            <div class="compound-card">
+                                <div class="compound-header">
+                                    <h4 id="comp-name">Aspirin</h4>
+                                    <span class="cid-badge" id="comp-cid">CID: 2244</span>
+                                </div>
+                                <p class="comp-desc" id="comp-desc">Aspirin, also known as acetylsalicylic acid, is a nonsteroidal anti-inflammatory drug (NSAID) used to reduce pain, fever, or inflammation.</p>
+                                
+                                <div class="comp-specs">
+                                    <div class="spec-row"><span>Formula:</span> <strong id="comp-formula">C9H8O4</strong></div>
+                                    <div class="spec-row"><span>Molecular Weight:</span> <strong id="comp-mw">180.16 g/mol</strong></div>
+                                    <div class="spec-row"><span>LogP:</span> <strong id="comp-logp">1.2</strong></div>
+                                    <div class="spec-row"><span>SMILES:</span> <code id="comp-smiles" class="smiles-code">CC(=O)OC1=CC=CC=C1C(=O)O</code></div>
+                                </div>
+
+                                <div class="comp-actions">
+                                    <button class="sci-btn btn-green btn-full" id="btn-import-sandbox">
+                                        <i data-lucide="download"></i> Load Compound Into Sandbox
+                                    </button>
+                                    <button class="sci-btn btn-violet btn-full" id="btn-view-3d">
+                                        <i data-lucide="layers"></i> Load 3D Ligand Geometry
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LAB CODEX TAB -->
+                    <div class="tab-content" id="codex-tab">
+                        <div class="codex-container">
+                            <h3><i data-lucide="book-open"></i> BioSynth Theoretical Manual</h3>
+                            
+                            <div class="codex-section">
+                                <h4>1. Lipinski's Rule of 5</h4>
+                                <p>Formulated by Christopher A. Lipinski in 1997, this rule predicts if a chemical compound has chemical and physical properties that would make it a likely orally active drug in humans. A drug candidate should have:</p>
+                                <ul>
+                                    <li><strong>Molecular Weight</strong> &le; 500 Daltons</li>
+                                    <li><strong>Partition Coefficient (LogP)</strong> &le; 5.0 (estimates lipophilicity)</li>
+                                    <li><strong>Hydrogen Bond Donors</strong> &le; 5 (sum of NH and OH groups)</li>
+                                    <li><strong>Hydrogen Bond Acceptors</strong> &le; 10 (sum of N and O atoms)</li>
+                                </ul>
+                            </div>
+
+                            <div class="codex-section">
+                                <h4>2. Molecular Docking Dynamics</h4>
+                                <p>Docking is a computational method that predicts the preferred orientation of one molecule (ligand) to a second (receptor/protein) when bound to each other. The binding affinity is represented as Gibbs Free Energy (&Delta;G):</p>
+                                <ul>
+                                    <li><strong>&Delta;G &lt; -6.0 kcal/mol:</strong> Good drug binding</li>
+                                    <li><strong>&Delta;G &lt; -8.0 kcal/mol:</strong> Exceptional binding affinity (tight lock-and-key fit)</li>
+                                    <li><strong>Inhibitory Constant (K<sub>i</sub>):</strong> Lower K<sub>i</sub> values indicate a more potent drug, needing less concentration to inhibit target functions.</li>
+                                </ul>
+                            </div>
+
+                            <div class="codex-section">
+                                <h4>3. WebGL Controls</h4>
+                                <ul>
+                                    <li><strong>Left Click + Drag:</strong> Rotate molecular model.</li>
+                                    <li><strong>Right Click + Drag:</strong> Pan camera.</li>
+                                    <li><strong>Scroll Wheel:</strong> Zoom in / out.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- App Scripts -->
+    <script src="js/database.js"></script>
+    <script src="js/sandbox.js"></script>
+    <script src="js/docking.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
